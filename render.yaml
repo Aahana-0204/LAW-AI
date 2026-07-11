@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: lawai-backend
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 1 --bind 0.0.0.0:$PORT --timeout 300 --keep-alive 5 main:app
+    healthCheckPath: /api/health
+    envVars:
+      - key: LLM_BACKEND
+        value: hf_api
+      - key: HF_MODEL
+        value: Qwen/Qwen2.5-72B-Instruct
+      - key: HF_EMBED_MODEL
+        value: sentence-transformers/all-MiniLM-L6-v2
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: CHROMA_PERSIST_DIR
+        value: /tmp/chroma_db
+      - key: CORPUS_DIR
+        value: /tmp/corpus
+      - key: CORS_ORIGINS
+        value: https://frontend-lilac-five-64.vercel.app
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      # Add these as secrets in Render dashboard:
+      # MONGO_URI = your MongoDB Atlas URI
+      # HF_TOKEN  = your HuggingFace token

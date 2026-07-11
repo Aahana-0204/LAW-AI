@@ -3,9 +3,9 @@ import os
 import hashlib
 
 import chromadb
-from chromadb.utils import embedding_functions
 
 from ..config import Config
+from .hf_embeddings import hf_ef
 
 _chroma_client = None
 _user_collection = None
@@ -18,12 +18,9 @@ def _get_user_collection():
     persist_dir = os.path.abspath(Config.CHROMA_PERSIST_DIR)
     os.makedirs(persist_dir, exist_ok=True)
     _chroma_client = chromadb.PersistentClient(path=persist_dir)
-    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="all-MiniLM-L6-v2"
-    )
     _user_collection = _chroma_client.get_or_create_collection(
         name="user_documents",
-        embedding_function=ef,
+        embedding_function=hf_ef,
         metadata={"hnsw:space": "cosine"},
     )
     return _user_collection

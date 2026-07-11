@@ -1,11 +1,11 @@
 import os
 
 import chromadb
-from chromadb.utils import embedding_functions
 
 from ..config import Config
 from .domain_classifier import classify_domain
 from .llm_service import call_llm
+from .hf_embeddings import hf_ef
 from ..utils.cache import get_cached, set_cached
 
 _chroma_client = None
@@ -19,12 +19,9 @@ def _get_collection():
     persist_dir = os.path.abspath(Config.CHROMA_PERSIST_DIR)
     os.makedirs(persist_dir, exist_ok=True)
     _chroma_client = chromadb.PersistentClient(path=persist_dir)
-    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="all-MiniLM-L6-v2"
-    )
     _collection = _chroma_client.get_or_create_collection(
         name="lawai_corpus",
-        embedding_function=ef,
+        embedding_function=hf_ef,
         metadata={"hnsw:space": "cosine"},
     )
     return _collection

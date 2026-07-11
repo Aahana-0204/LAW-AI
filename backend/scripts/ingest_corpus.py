@@ -10,7 +10,8 @@ load_dotenv(
 )
 
 import chromadb
-from chromadb.utils import embedding_functions
+
+from app.services.hf_embeddings import hf_ef
 
 from data.corpus.civil_family_law import CIVIL_FAMILY_CORPUS
 from data.corpus.constitutional_articles import CONSTITUTIONAL_CORPUS
@@ -25,10 +26,6 @@ def ingest():
     print(f"Initializing ChromaDB at {persist_dir}")
     client = chromadb.PersistentClient(path=persist_dir)
 
-    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="all-MiniLM-L6-v2"
-    )
-
     try:
         client.delete_collection("lawai_corpus")
         print("Deleted existing collection")
@@ -37,7 +34,7 @@ def ingest():
 
     collection = client.create_collection(
         name="lawai_corpus",
-        embedding_function=ef,
+        embedding_function=hf_ef,
         metadata={"hnsw:space": "cosine"},
     )
 
