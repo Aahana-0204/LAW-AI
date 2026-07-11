@@ -2,13 +2,13 @@
 Unified LLM caller.
 
 LLM_BACKEND env var:
-  "ollama"  (default) — uses local Ollama server (for local dev)
-  "local"             — uses llama-cpp-python with GGUF model (for cloud / no-API deploy)
+  "ollama"   (default) — uses local Ollama server (local dev)
+  "hf_api"             — uses HuggingFace Serverless Inference API (free, cloud)
 
 For cloud (HuggingFace Spaces), set:
-  LLM_BACKEND=local
-  LLM_MODEL_REPO=Qwen/Qwen2.5-3B-Instruct-GGUF
-  LLM_MODEL_FILE=qwen2.5-3b-instruct-q4_k_m.gguf
+  LLM_BACKEND=hf_api
+  HF_TOKEN=hf_...           (your HuggingFace token)
+  HF_MODEL=Qwen/Qwen2.5-72B-Instruct  (or any free model)
 """
 
 import logging
@@ -21,50 +21,63 @@ LLM_BACKEND = os.environ.get("LLM_BACKEND", "ollama")
 OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral")
 
-# Local GGUF model (used when LLM_BACKEND=local)
-MODEL_REPO = os.environ.get("LLM_MODEL_REPO", "Qwen/Qwen2.5-3B-Instruct-GGUF")
-MODEL_FILE = os.environ.get("LLM_MODEL_FILE", "qwen2.5-3b-instruct-q4_k_m.gguf")
-N_THREADS = int(os.environ.get("LLM_THREADS", "2"))
-N_CTX = int(os.environ.get("LLM_N_CTX", "4096"))
-
-_local_llm = None
+# HF Inference Serverless API settings
+HF_TOKEN = os.environ.get("HF_TOKEN", "")
+HF_MODEL = os.environ.get("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 
 
-def _get_local_llm():
-    global _local_llm
-    if _local_llm is not None:
-        return _local_llm
-    from huggingface_hub import hf_hub_download
-    from llama_cpp import Llama
+def _call_hf_api(prompt: str, max_tokens: int = 2000, temperature: float = 0.2) -> str:
+    """Use HuggingFace Serverless Inference API — free with any HF account."""
+    import requests
 
-    logger.info(f"Downloading model {MODEL_FILE} from {MODEL_REPO} ...")
-    model_path = hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILE)
-    logger.info(f"Loading model from {model_path}")
-    _local_llm = Llama(
-        model_path=model_path,
-        n_ctx=N_CTX,
-        n_threads=N_THREADS,
-        verbose=False,
-    )
-    logger.info("Model ready.")
-    return _local_llm
+    headers = {"Content-Type": "application/json"}
+    if HF_TOKEN:
+        headers["Authorization"] = f"Bearer {HF_TOKEN}"
+
+    # Use the chat completions endpoint (OpenAI-compatible)
+    url = f"https://api-inference.huggingface.co/models/{HF_MODEL}/v1/chat/completions"
+    payload = {
+        "model": HF_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are LAWAI, an expert AI legal assistant specializing in Indian law. "
+                    "Provide accurate, helpful legal information based on Indian legal framework. "
+                    "Always mention consulting a qualified lawyer for specific legal advice."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=120)
+            if resp.status_code == 503:
+                # Model loading — wait and retry
+                wait = min(20 * (attempt + 1), 60)
+                logger.info(f"HF model loading, retrying in {wait}s...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(2)
+            else:
+                logger.error(f"HF API error: {e}")
+                raise
 
 
 def call_llm(prompt: str, max_tokens: int = 2000, temperature: float = 0.2) -> str:
     """Call the configured LLM backend. Returns the generated text."""
 
-    if LLM_BACKEND == "local":
-        try:
-            llm = _get_local_llm()
-            output = llm.create_chat_completion(
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-            return output["choices"][0]["message"]["content"].strip()
-        except Exception as e:
-            logger.error(f"Local LLM error: {e}")
-            raise
+    if LLM_BACKEND == "hf_api":
+        return _call_hf_api(prompt, max_tokens, temperature)
 
     # Ollama (default for local dev)
     import requests
@@ -78,7 +91,7 @@ def call_llm(prompt: str, max_tokens: int = 2000, temperature: float = 0.2) -> s
                     "stream": False,
                     "options": {"temperature": temperature, "num_predict": max_tokens},
                 },
-                timeout=120,
+                timeout=180,
             )
             resp.raise_for_status()
             return resp.json().get("response", "").strip()

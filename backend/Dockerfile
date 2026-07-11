@@ -2,21 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps for llama-cpp-python compilation + sentence-transformers
+# Minimal system deps (no C++ compiler needed anymore)
 RUN apt-get update && apt-get install -y \
-    gcc g++ cmake make git curl \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first (layer caching)
 COPY requirements.txt .
 
-# Install llama-cpp-python pre-built CPU wheel (faster than compiling)
-RUN pip install --no-cache-dir \
-    "llama-cpp-python==0.2.90" \
-    --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
-    || pip install --no-cache-dir "llama-cpp-python==0.2.90"
-
-# Install remaining dependencies
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app code
@@ -29,11 +23,8 @@ RUN mkdir -p chroma_db data/corpus
 EXPOSE 7860
 
 # Environment defaults for cloud deployment
-ENV LLM_BACKEND=local
-ENV LLM_MODEL_REPO=Qwen/Qwen2.5-3B-Instruct-GGUF
-ENV LLM_MODEL_FILE=qwen2.5-3b-instruct-q4_k_m.gguf
-ENV LLM_THREADS=2
-ENV LLM_N_CTX=4096
+ENV LLM_BACKEND=hf_api
+ENV HF_MODEL=Qwen/Qwen2.5-72B-Instruct
 ENV PORT=7860
 ENV FLASK_ENV=production
 ENV FLASK_DEBUG=0
