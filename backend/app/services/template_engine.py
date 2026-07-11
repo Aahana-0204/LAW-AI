@@ -35,11 +35,38 @@ DOMAIN_COURTS = {
 }
 
 
+OUT_OF_DOMAIN_TEMPLATE = (
+    "🚫 **Outside My Domain**\n\n"
+    "I am LAWAI — an AI assistant specializing **exclusively in Indian law**.\n\n"
+    "I cannot answer questions about cricket, sports, weather, cooking, entertainment, "
+    "science, technology, or other non-legal topics.\n\n"
+    "**Ask me about:**\n"
+    "- 🔴 IPC sections & criminal law\n"
+    "- 📜 Constitutional rights (Articles 12–35)\n"
+    "- 👨‍👩‍👧 Family law (divorce, custody, maintenance)\n"
+    "- 🏠 Property & rent disputes\n"
+    "- 💼 Employment & labour law\n"
+    "- 🏢 Company law & compliance\n"
+    "- 💰 Tax law (GST, Income Tax)\n"
+    "- 👥 Consumer rights & protection"
+)
+
+# Minimum relevance score (0-100) for the top corpus result to be considered legal
+MIN_RELEVANCE_THRESHOLD = 20
+
+
 def generate_template_response(query: str, domain: str, corpus_results: list) -> str:
     """
     Generate a structured legal response from corpus search results.
     No external API needed — uses the pre-built legal corpus.
+    Returns an out-of-domain message if relevance is too low.
     """
+    # Guard: if best match relevance is below threshold AND domain is General
+    # it means the corpus has no meaningful legal match → out of domain
+    if domain == "General":
+        top_relevance = corpus_results[0]["relevance"] if corpus_results else 0
+        if top_relevance < MIN_RELEVANCE_THRESHOLD:
+            return OUT_OF_DOMAIN_TEMPLATE
 
     acts = DOMAIN_ACTS.get(domain, DOMAIN_ACTS["General"])
     court = DOMAIN_COURTS.get(domain, DOMAIN_COURTS["General"])

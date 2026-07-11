@@ -5,45 +5,66 @@ from .domain_classifier import classify_domain
 from .llm_service import call_llm
 from ..utils.cache import get_cached, set_cached
 
-NON_LEGAL_KEYWORDS = [
-    "recipe", "weather", "sports", "movie", "music", "game", "food",
-    "travel", "coding", "programming", "math", "science", "chemistry", "physics",
-]
+# Words that strongly suggest legal intent
+LEGAL_INTENT_WORDS = {
+    "law", "legal", "ipc", "section", "act", "court", "judge", "lawyer",
+    "advocate", "rights", "crime", "criminal", "civil", "constitution",
+    "article", "petition", "case", "fir", "bail", "arrest", "police",
+    "property", "contract", "divorce", "marriage", "custody", "maintenance",
+    "tax", "gst", "company", "employment", "labour", "worker", "salary",
+    "rent", "tenant", "landlord", "consumer", "cheque", "fraud", "theft",
+    "murder", "assault", "rape", "sentence", "punishment", "tribunal",
+    "affidavit", "notary", "deed", "registration", "will", "succession",
+    "shareholder", "director", "sebi", "pf", "gratuity", "termination",
+    "harassment", "defamation", "negligence", "damages", "injunction",
+    "supreme court", "high court", "district court", "magistrate", "pil",
+    "fundamental right", "writ", "habeas corpus", "mandamus", "crpc", "cpc",
+    "hindu", "muslim", "christian", "personal law", "dowry", "adoption",
+}
 
-SYSTEM_PROMPT = """You are LAWAI, an expert AI Legal Assistant specializing in Indian law. You have deep knowledge of:
-- Indian Penal Code (IPC) and Criminal Procedure Code (CrPC)
-- Constitutional Law and Fundamental Rights
-- Civil Procedure Code (CPC) and Contract Law
-- Family Law (Hindu, Muslim, Christian personal laws)
-- Property Law (Transfer of Property Act, Registration Act)
-- Labour Law (Industrial Disputes Act, Minimum Wages, Gratuity)
-- Corporate Law (Companies Act, SEBI regulations)
-- Tax Law (Income Tax Act, GST)
-- Consumer Protection Law
-- Important Supreme Court and High Court judgments
+OUT_OF_DOMAIN_REPLY = (
+    "🚫 **Outside My Domain**\n\n"
+    "I am LAWAI — an AI assistant specializing **exclusively in Indian law**.\n\n"
+    "I cannot answer questions about cricket, sports, weather, cooking, entertainment, "
+    "science, technology, or other non-legal topics.\n\n"
+    "**Ask me about:**\n"
+    "- 🔴 IPC sections & criminal law\n"
+    "- 📜 Constitutional rights (Articles 12–35)\n"
+    "- 👨‍👩‍👧 Family law (divorce, custody, maintenance)\n"
+    "- 🏠 Property & rent disputes\n"
+    "- 💼 Employment & labour law\n"
+    "- 🏢 Company law & compliance\n"
+    "- 💰 Tax law (GST, Income Tax)\n"
+    "- 👥 Consumer rights & protection"
+)
 
-RESPONSE FORMAT:
-## Legal Position
-[Clear explanation of the law]
 
-## Relevant Provisions
-[Specific sections, articles, or acts]
+def _has_legal_intent(query: str) -> bool:
+    """Check if query has any legal intent keywords."""
+    q = query.lower()
+    return any(word in q for word in LEGAL_INTENT_WORDS)
 
-## Key Points
-[Bullet points of important facts]
 
-## Practical Implications
-[What this means for the person asking]
+def _is_out_of_domain(query: str, domain: str, corpus_results: list) -> bool:
+    """
+    Return True if query is clearly out of legal domain.
+    Uses two checks:
+    1. Domain is General AND no legal intent words detected
+    2. Best corpus relevance is below minimum threshold (weak match)
+    """
+    # If classified into a specific legal domain, allow it
+    if domain != "General":
+        return False
 
-## Important Note
-Always recommend consulting a qualified lawyer for specific legal situations.
+    # General domain: only allow if legal intent words present
+    if not _has_legal_intent(query):
+        return True
 
-RULES:
-- Always cite specific section numbers, article numbers, or case names
-- If context documents are provided, prioritize them
-- Be clear, structured, and use plain language
-- Never fabricate section numbers or case citations
-- If you're unsure, say so honestly"""
+    # Even with intent words, if corpus relevance is too low, likely off-topic
+    if corpus_results and corpus_results[0]["relevance"] < 25:
+        return True
+
+    return False
 
 
 def get_rag_answer(query: str, chat_history: list = None) -> dict:
@@ -53,16 +74,18 @@ def get_rag_answer(query: str, chat_history: list = None) -> dict:
 
     domain = classify_domain(query)
 
-    query_lower = query.lower()
-    if domain == "General" and any(kw in query_lower for kw in NON_LEGAL_KEYWORDS):
-        return {
-            "answer": "I specialize in Indian law and legal matters. Your query appears to be outside my domain of expertise. Please ask me about IPC sections, constitutional rights, family law, property matters, employment law, or any other legal topic.",
-            "domain": "General",
-            "sources": [],
-        }
-
     # Keyword-based corpus search (zero deps, instant startup)
     corpus_results = search_corpus(query, n_results=5)
+
+    # ── Out-of-domain guard ─────────────────────────────────────────────────
+    if _is_out_of_domain(query, domain, corpus_results):
+        return {
+            "answer": OUT_OF_DOMAIN_REPLY,
+            "domain": "Out of Scope",
+            "sources": [],
+        }
+    # ────────────────────────────────────────────────────────────────────────
+
     sources = [
         {
             "title": r["title"],
