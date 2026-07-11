@@ -1,0 +1,58 @@
+CASE_LAW_CORPUS = [
+    {
+        "id": "case_maneka",
+        "title": "Maneka Gandhi v Union of India (1978) - Article 21 Expansion",
+        "section": "AIR 1978 SC 597",
+        "domain": "Constitutional",
+        "content": "Maneka Gandhi v Union of India (1978) is a landmark Supreme Court judgment that dramatically expanded the scope of Article 21. The court held that the procedure established by law must be right, just, fair, and not arbitrary, fanciful or oppressive. The case rejected the narrow interpretation from A.K. Gopalan v State of Madras (1950). Key ratio: Articles 14, 19, and 21 are not mutually exclusive; they are complementary. Any law depriving personal liberty must satisfy the tests of Article 14 (non-arbitrariness), Article 19 (reasonableness), and Article 21 (fair procedure). The golden triangle of Articles 14, 19, 21 was established. This case established that personal liberty under Article 21 includes: right to travel abroad, right to livelihood, right to know, right to privacy. Justice P.N. Bhagwati wrote the pioneering judgment.",
+    },
+    {
+        "id": "case_kesavananda",
+        "title": "Kesavananda Bharati v State of Kerala (1973) - Basic Structure Doctrine",
+        "section": "AIR 1973 SC 1461",
+        "domain": "Constitutional",
+        "content": "Kesavananda Bharati v State of Kerala (1973) is arguably the most important constitutional case in Indian history. A 13-judge bench (7:6 majority) held that Parliament's amending power under Article 368 cannot destroy the basic structure or essential features of the Constitution. The basic structure doctrine includes: supremacy of the Constitution, rule of law, separation of powers, judicial review, free and fair elections, federalism, secularism, fundamental rights. This overruled Golak Nath case (1967). The case saved Indian democracy from authoritarian amendments. Justice H.R. Khanna's concurring opinion on fundamental rights was crucial. This doctrine has been used to strike down several constitutional amendments that violated basic structure.",
+    },
+    {
+        "id": "case_puttaswamy",
+        "title": "Justice K.S. Puttaswamy v Union of India (2017) - Right to Privacy",
+        "section": "(2017) 10 SCC 1",
+        "domain": "Constitutional",
+        "content": "Justice K.S. Puttaswamy v Union of India (2017) - A 9-judge bench unanimously held that the right to privacy is a fundamental right protected under Article 21 of the Constitution. The judgment overruled M.P. Sharma (1954) and Kharak Singh (1962) cases. Privacy includes: informational privacy, bodily integrity, privacy of choice, decisional autonomy, spatial privacy. The state can restrict privacy only if: (1) sanctioned by law (2) proportionate to the object (3) serving legitimate aim (4) necessary in democratic society. The judgment was pivotal for data protection legislation (DPDP Act 2023), Aadhaar challenges, and surveillance law. Privacy was held to be integral to human dignity under Articles 14, 19, and 21.",
+    },
+    {
+        "id": "case_vishaka",
+        "title": "Vishaka v State of Rajasthan (1997) - Sexual Harassment at Workplace",
+        "section": "AIR 1997 SC 3011",
+        "domain": "Labour",
+        "content": "Vishaka v State of Rajasthan (1997) - Supreme Court laid down the Vishaka Guidelines on prevention of sexual harassment at workplace, pending legislation. These guidelines were binding under Articles 32 and 141. Key guidelines: (1) All employers must have a written policy against sexual harassment (2) A complaints committee must be set up at workplace (3) Awareness about rights must be provided. Sexual harassment includes unwelcome physical, verbal, or non-verbal conduct of sexual nature. These guidelines were eventually codified into the Sexual Harassment of Women at Workplace (Prevention, Prohibition and Redressal) Act, 2013 (POSH Act). Under POSH Act: ICC (Internal Complaints Committee) mandatory for 10+ employees. Complaint must be filed within 3 months. Inquiry within 90 days. Action within 60 days of inquiry report.",
+    },
+    {
+        "id": "case_shah_bano",
+        "title": "Mohd. Ahmed Khan v Shah Bano Begum (1985) - Muslim Women Maintenance",
+        "section": "AIR 1985 SC 945",
+        "domain": "Family",
+        "content": "Mohd. Ahmed Khan v Shah Bano Begum (1985) - Supreme Court held that a Muslim divorced woman is entitled to maintenance under Section 125 CrPC, which applies to all citizens irrespective of religion. Shah Bano, divorced by triple talaq after 43 years of marriage, was awarded maintenance. The court upheld secular law over personal law for maintenance. This led to political controversy and the Muslim Women (Protection of Rights on Divorce) Act, 1986, which was seen as overturning the judgment. In Danial Latifi v Union of India (2001), SC held that the 1986 Act actually provides for maintenance beyond iddat period. Triple Talaq was declared unconstitutional in Shayara Bano v Union of India (2017) - landmark 3:2 judgment. Muslim Women (Protection of Rights on Marriage) Act 2019 makes instant triple talaq a criminal offense.",
+    },
+    {
+        "id": "case_olga_tellis",
+        "title": "Olga Tellis v Bombay Municipal Corporation (1985) - Right to Livelihood",
+        "section": "AIR 1986 SC 180",
+        "domain": "Constitutional",
+        "content": "Olga Tellis v Bombay Municipal Corporation (1985) - Supreme Court held that the right to livelihood is part of the right to life under Article 21. Pavement dwellers in Mumbai challenged their eviction without notice or alternative accommodation. The court held: (1) Right to life includes right to livelihood (2) Deprivation of livelihood = deprivation of life (3) Procedural safeguards must be followed before eviction (4) Notice must be given (5) The State has obligation to provide alternative arrangements. This case established that economic and social rights are part of Article 21. Later extended in: Unni Krishnan v AP (1993) - right to education; Delhi Transport Corporation v DTC Mazdoor Union (1991) - right to fair dismissal procedures.",
+    },
+    {
+        "id": "case_mc_mehta",
+        "title": "M.C. Mehta v Union of India - Environmental Law PILs",
+        "section": "Multiple PILs from 1986",
+        "domain": "Constitutional",
+        "content": "M.C. Mehta v Union of India represents a series of landmark PILs that transformed environmental law in India. Key outcomes: (1) Absolute liability principle (Bhopal Gas tragedy follow-up) - enterprise engaged in hazardous activity liable without fault (2) Closure of tanneries and industries polluting Ganga (3) CNG fuel mandate for Delhi buses reducing pollution (4) Taj Trapezium Zone restrictions on polluting industries near Taj Mahal (5) Vehicular pollution measures in Delhi. The court established: precautionary principle, polluter pays principle, inter-generational equity, right to clean environment as part of Article 21. Environment Protection Act 1986, Water Act 1974, Air Act 1981 are key legislation. CPCB (Central Pollution Control Board) and SPCBs regulate pollution.",
+    },
+    {
+        "id": "case_hussainara",
+        "title": "Hussainara Khatoon v State of Bihar (1979) - Right to Speedy Trial",
+        "section": "AIR 1979 SC 1360",
+        "domain": "Constitutional",
+        "content": "Hussainara Khatoon v State of Bihar (1979) - Supreme Court addressed the plight of undertrial prisoners in Bihar who had spent more time in jail than the maximum sentence for their alleged offenses. Held: Right to speedy trial is fundamental right under Article 21. The state must release undertrials who have spent more time than maximum sentence. Free legal aid is a constitutional right under Article 39A (Directive Principle). This case led to: (1) Section 436A CrPC - release of undertrial after half the maximum sentence (2) Legal Services Authorities Act 1987 - free legal aid (3) NALSA (National Legal Services Authority) for free legal aid to poor. The judgment highlighted that poverty cannot be a barrier to justice. Regular bail hearings must be conducted.",
+    },
+]
