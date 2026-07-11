@@ -23,11 +23,15 @@ def create_app():
     from .routes.chat import chat_bp
     from .routes.expert import expert_bp
     from .routes.docs import docs_bp
+    from .routes.upload import upload_bp
+    from .routes.generate import generate_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(chat_bp, url_prefix="/api/chat")
     app.register_blueprint(expert_bp, url_prefix="/api/experts")
     app.register_blueprint(docs_bp, url_prefix="/api/docs")
+    app.register_blueprint(upload_bp, url_prefix="/api/docs")
+    app.register_blueprint(generate_bp, url_prefix="/api/generate")
 
     @app.route("/api/health")
     def health():
