@@ -106,18 +106,12 @@ def get_rag_answer(query: str, chat_history: list = None) -> dict:
             role = "User" if msg["role"] == "user" else "LAWAI"
             history_text += f"**{role}:** {msg['content'][:300]}\n\n"
 
-    prompt = f"""{SYSTEM_PROMPT}
-
-**Detected Legal Domain:** {domain}
-
-**Retrieved Legal Context:**
-{context if context else "No specific corpus matches found. Answer from comprehensive legal knowledge."}
-
-{"**Conversation History:**" + chr(10) + history_text if history_text else ""}
-
-**User Query:** {query}
-
-Provide a comprehensive, accurate legal response following the format above:"""
+    prompt = (
+        f"Legal Domain: {domain}\n\n"
+        f"Context:\n{context}\n\n"
+        f"{('History:\n' + history_text) if history_text else ''}"
+        f"Query: {query}"
+    )
 
     try:
         answer = call_llm(
