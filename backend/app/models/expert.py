@@ -14,10 +14,13 @@ def _get_db():
         return _db
     _client = MongoClient(
         Config.MONGO_URI,
-        serverSelectionTimeoutMS=8000,
-        connectTimeoutMS=8000,
-        socketTimeoutMS=8000,
+        serverSelectionTimeoutMS=10000,
+        connectTimeoutMS=10000,
+        socketTimeoutMS=15000,
         maxPoolSize=1,
+        tls=True,
+        tlsAllowInvalidCertificates=True,
+        retryWrites=True,
     )
     uri = Config.MONGO_URI or ""
     db_name = "lawai"

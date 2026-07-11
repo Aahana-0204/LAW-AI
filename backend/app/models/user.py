@@ -16,10 +16,13 @@ def _get_db():
         return _db
     _client = MongoClient(
         Config.MONGO_URI,
-        serverSelectionTimeoutMS=8000,
-        connectTimeoutMS=8000,
-        socketTimeoutMS=8000,
-        maxPoolSize=1,  # Serverless: keep pool small
+        serverSelectionTimeoutMS=10000,
+        connectTimeoutMS=10000,
+        socketTimeoutMS=15000,
+        maxPoolSize=1,       # Serverless: keep pool small
+        tls=True,
+        tlsAllowInvalidCertificates=True,   # Bypass SSL cert check (Vercel ↔ Atlas)
+        retryWrites=True,
     )
     # Extract database name from URI or default to "lawai"
     uri = Config.MONGO_URI or ""
