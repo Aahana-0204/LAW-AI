@@ -1,4 +1,5 @@
 import os
+import time
 
 import chromadb
 import google.generativeai as genai
@@ -6,57 +7,93 @@ from chromadb.utils import embedding_functions
 
 from ..config import Config
 from .domain_classifier import classify_domain
+from ..utils.cache import get_cached, set_cached
 
 genai.configure(api_key=Config.GEMINI_API_KEY)
 
 _chroma_client = None
 _collection = None
-_embedding_function = None
 
 
 def _get_collection():
-    global _chroma_client, _collection, _embedding_function
+    global _chroma_client, _collection
     if _collection is not None:
         return _collection
     persist_dir = os.path.abspath(Config.CHROMA_PERSIST_DIR)
     os.makedirs(persist_dir, exist_ok=True)
     _chroma_client = chromadb.PersistentClient(path=persist_dir)
-    _embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name="all-MiniLM-L6-v2"
     )
     _collection = _chroma_client.get_or_create_collection(
         name="lawai_corpus",
-        embedding_function=_embedding_function,
+        embedding_function=ef,
         metadata={"hnsw:space": "cosine"},
     )
     return _collection
 
 
-SYSTEM_PROMPT = """You are LAWAI, an expert AI Legal Assistant specializing in Indian law.
-You provide accurate, helpful legal information based on IPC sections, constitutional articles, case law, and other legal provisions.
+NON_LEGAL_KEYWORDS = [
+    "recipe", "weather", "sports", "movie", "music", "game", "food",
+    "travel", "coding", "programming", "math", "science", "chemistry", "physics",
+]
+
+SYSTEM_PROMPT = """You are LAWAI, an expert AI Legal Assistant specializing in Indian law. You have deep knowledge of:
+- Indian Penal Code (IPC) and Criminal Procedure Code (CrPC)
+- Constitutional Law and Fundamental Rights
+- Civil Procedure Code (CPC) and Contract Law
+- Family Law (Hindu, Muslim, Christian personal laws)
+- Property Law (Transfer of Property Act, Registration Act)
+- Labour Law (Industrial Disputes Act, Minimum Wages, Gratuity)
+- Corporate Law (Companies Act, SEBI regulations)
+- Tax Law (Income Tax Act, GST)
+- Consumer Protection Law
+- Important Supreme Court and High Court judgments
+
+RESPONSE FORMAT:
+## Legal Position
+[Clear explanation of the law]
+
+## Relevant Provisions
+[Specific sections, articles, or acts]
+
+## Key Points
+[Bullet points of important facts]
+
+## Practical Implications
+[What this means for the person asking]
+
+## Important Note
+Always recommend consulting a qualified lawyer for specific legal situations.
 
 RULES:
-1. Always cite specific sections, articles, or case names from the provided context
-2. If the context doesn't contain relevant information, say so honestly
-3. Never give advice on matters outside Indian law
-4. Always recommend consulting a qualified lawyer for specific legal situations
-5. Be clear, structured, and use simple language
-
-Format your response with:
-- Clear explanation of the legal position
-- Relevant sections/articles cited
-- Practical implications
-- Recommendation to consult a lawyer for specific cases"""
+- Always cite specific section numbers, article numbers, or case names
+- If context documents are provided, prioritize them
+- Be clear, structured, and use plain language
+- Never fabricate section numbers or case citations
+- If you're unsure, say so honestly"""
 
 
 def get_rag_answer(query: str, chat_history: list = None) -> dict:
-    domain = classify_domain(query)
-    collection = _get_collection()
+    cached = get_cached(query)
+    if cached and not chat_history:
+        return cached
 
-    if collection.count() == 0:
-        context = ""
-        sources = []
-    else:
+    domain = classify_domain(query)
+
+    query_lower = query.lower()
+    if domain == "General" and any(kw in query_lower for kw in NON_LEGAL_KEYWORDS):
+        return {
+            "answer": "I specialize in Indian law and legal matters. Your query appears to be outside my domain of expertise. Please ask me about IPC sections, constitutional rights, family law, property matters, employment law, or any other legal topic.",
+            "domain": "General",
+            "sources": [],
+        }
+
+    collection = _get_collection()
+    sources = []
+    context = ""
+
+    if collection.count() > 0:
         results = collection.query(
             query_texts=[query],
             n_results=min(5, collection.count()),
@@ -66,63 +103,67 @@ def get_rag_answer(query: str, chat_history: list = None) -> dict:
         metas = results["metadatas"][0] if results["metadatas"] else []
         dists = results["distances"][0] if results["distances"] else []
 
-        sources = []
         context_parts = []
         for doc, meta, dist in zip(docs, metas, dists):
             relevance = round((1 - dist) * 100, 1)
-            if relevance > 30:
+            if relevance > 40:
                 sources.append(
                     {
                         "title": meta.get("title", "Legal Document"),
                         "section": meta.get("section", ""),
                         "domain": meta.get("domain", domain),
                         "relevance": relevance,
-                        "snippet": doc[:200] + "..." if len(doc) > 200 else doc,
+                        "snippet": doc[:250] + "..." if len(doc) > 250 else doc,
                     }
                 )
-                context_parts.append(f"[{meta.get('title', '')}]\n{doc}")
+                context_parts.append(f"### {meta.get('title', '')}\n{doc}")
         context = "\n\n---\n\n".join(context_parts)
 
     history_text = ""
     if chat_history:
-        for msg in chat_history[-4:]:
-            role = "User" if msg["role"] == "user" else "Assistant"
-            history_text += f"{role}: {msg['content']}\n"
+        recent = chat_history[-4:]
+        for msg in recent:
+            role = "User" if msg["role"] == "user" else "LAWAI"
+            history_text += f"**{role}:** {msg['content'][:300]}\n\n"
 
     prompt = f"""{SYSTEM_PROMPT}
 
-Domain detected: {domain}
+**Detected Legal Domain:** {domain}
 
-Legal Context:
-{context if context else "No specific corpus entries found. Answering from general legal knowledge."}
+**Retrieved Legal Context:**
+{context if context else "No specific corpus matches found. Answer from comprehensive legal knowledge."}
 
-{f"Conversation history:{chr(10)}{history_text}" if history_text else ""}
+{"**Conversation History:**" + chr(10) + history_text if history_text else ""}
 
-User Query: {query}
+**User Query:** {query}
 
-Provide a comprehensive, accurate legal response:"""
+Provide a comprehensive, accurate legal response following the format above:"""
 
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.3,
-                max_output_tokens=1500,
-            ),
-        )
-        answer = response.text
-    except Exception as exc:
-        answer = (
-            "I apologize, I'm unable to process your query at the moment. "
-            f"Please try again. Error: {str(exc)}"
-        )
+    for attempt in range(3):
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.2,
+                    max_output_tokens=2000,
+                ),
+            )
+            answer = response.text
+            break
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(1)
+            else:
+                answer = (
+                    "I apologize, I'm temporarily unable to process your query. "
+                    f"Please try again in a moment. (Error: {type(e).__name__})"
+                )
 
-    return {
-        "answer": answer,
-        "domain": domain,
-        "sources": sources,
-    }
+    result = {"answer": answer, "domain": domain, "sources": sources}
+    if not chat_history:
+        set_cached(query, result)
+    return result
 
 
 def is_domain_relevant(query: str) -> bool:
