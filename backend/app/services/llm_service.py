@@ -2,8 +2,10 @@
 Unified LLM caller.
 
 LLM_BACKEND env var:
-  "ollama"   — uses local Ollama server (local dev)
-  "hf_api"   — uses HuggingFace InferenceClient via router.huggingface.co (free, cloud)
+  "ollama"   — local Ollama server (local dev)
+  "groq"     — Groq API, free tier (Llama 3.3 70B) — RECOMMENDED FOR CLOUD
+  "gemini"   — Google Gemini Flash, free tier
+  "hf_api"   — HuggingFace InferenceClient (needs inference-scoped token)
 """
 
 import logging
@@ -16,87 +18,114 @@ LLM_BACKEND = os.environ.get("LLM_BACKEND", "ollama")
 OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral")
 
+# Groq
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+
+# Gemini
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+
+# HF (legacy)
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 HF_MODEL = os.environ.get("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 
-_hf_client = None
-
-
-def _get_hf_client():
-    global _hf_client
-    if _hf_client is not None:
-        return _hf_client
-    from huggingface_hub import InferenceClient
-
-    # provider="hf-inference" routes via router.huggingface.co (new infra, better DNS)
-    try:
-        _hf_client = InferenceClient(
-            provider="hf-inference",
-            api_key=HF_TOKEN or None,
-        )
-    except TypeError:
-        # Older huggingface_hub without provider param
-        _hf_client = InferenceClient(token=HF_TOKEN or None)
-    return _hf_client
-
-
 SYSTEM_MSG = (
     "You are LAWAI, an expert AI legal assistant specializing in Indian law. "
-    "Provide accurate, structured legal information based on the Indian legal framework. "
-    "Always recommend consulting a qualified lawyer for specific legal advice."
+    "Provide accurate, structured legal information. Cite specific sections, acts, and articles. "
+    "Always recommend consulting a qualified advocate for specific legal situations."
 )
 
 
-def _call_hf_api(prompt: str, max_tokens: int = 2000, temperature: float = 0.2) -> str:
-    client = _get_hf_client()
-    messages = [
-        {"role": "system", "content": SYSTEM_MSG},
-        {"role": "user", "content": prompt},
-    ]
-    for attempt in range(3):
-        try:
-            resp = client.chat_completion(
-                model=HF_MODEL,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-            return resp.choices[0].message.content.strip()
-        except Exception as e:
-            err = str(e)
-            logger.warning(f"HF API attempt {attempt+1}: {err[:200]}")
-            if "503" in err or "loading" in err.lower():
-                time.sleep(20)
-            elif attempt < 2:
-                time.sleep(3)
-            else:
-                raise
+def _call_groq(prompt: str, max_tokens: int, temperature: float) -> str:
+    import requests
+
+    resp = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        json={
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_MSG},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        },
+        headers={
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
+
+
+def _call_gemini(prompt: str, max_tokens: int, temperature: float) -> str:
+    import requests
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    payload = {
+        "contents": [{"parts": [{"text": f"{SYSTEM_MSG}\n\n{prompt}"}]}],
+        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": temperature},
+    }
+    resp = requests.post(url, json=payload, timeout=60)
+    resp.raise_for_status()
+    data = resp.json()
+    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+
+def _call_hf_api(prompt: str, max_tokens: int, temperature: float) -> str:
+    from huggingface_hub import InferenceClient
+
+    try:
+        client = InferenceClient(provider="hf-inference", api_key=HF_TOKEN or None)
+    except TypeError:
+        client = InferenceClient(token=HF_TOKEN or None)
+
+    resp = client.chat_completion(
+        model=HF_MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_MSG},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
+    return resp.choices[0].message.content.strip()
 
 
 def call_llm(prompt: str, max_tokens: int = 2000, temperature: float = 0.2) -> str:
     """Call the configured LLM backend. Returns the generated text."""
+    backend = LLM_BACKEND
 
-    if LLM_BACKEND == "hf_api":
-        return _call_hf_api(prompt, max_tokens, temperature)
-
-    # Ollama (default for local dev)
-    import requests
     for attempt in range(3):
         try:
-            resp = requests.post(
-                f"{OLLAMA_BASE}/api/generate",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": temperature, "num_predict": max_tokens},
-                },
-                timeout=180,
-            )
-            resp.raise_for_status()
-            return resp.json().get("response", "").strip()
+            if backend == "groq":
+                return _call_groq(prompt, max_tokens, temperature)
+            elif backend == "gemini":
+                return _call_gemini(prompt, max_tokens, temperature)
+            elif backend == "hf_api":
+                return _call_hf_api(prompt, max_tokens, temperature)
+            else:
+                # Ollama
+                import requests
+                resp = requests.post(
+                    f"{OLLAMA_BASE}/api/generate",
+                    json={
+                        "model": OLLAMA_MODEL,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": temperature, "num_predict": max_tokens},
+                    },
+                    timeout=180,
+                )
+                resp.raise_for_status()
+                return resp.json().get("response", "").strip()
         except Exception as e:
+            err_str = str(e)
+            logger.warning(f"LLM attempt {attempt+1} ({backend}): {err_str[:150]}")
             if attempt < 2:
-                time.sleep(1)
+                time.sleep(2)
             else:
                 raise
