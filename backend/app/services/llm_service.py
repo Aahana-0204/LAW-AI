@@ -2,13 +2,8 @@
 Unified LLM caller.
 
 LLM_BACKEND env var:
-  "ollama"   (default) — uses local Ollama server (local dev)
-  "hf_api"             — uses HuggingFace Serverless Inference API (free, cloud)
-
-For cloud (HuggingFace Spaces), set:
-  LLM_BACKEND=hf_api
-  HF_TOKEN=hf_...           (your HuggingFace token)
-  HF_MODEL=Qwen/Qwen2.5-72B-Instruct  (or any free model)
+  "ollama"   — uses local Ollama server (local dev)
+  "hf_api"   — uses HuggingFace InferenceClient via router.huggingface.co (free, cloud)
 """
 
 import logging
@@ -21,55 +16,60 @@ LLM_BACKEND = os.environ.get("LLM_BACKEND", "ollama")
 OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral")
 
-# HF Inference Serverless API settings
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 HF_MODEL = os.environ.get("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 
+_hf_client = None
+
+
+def _get_hf_client():
+    global _hf_client
+    if _hf_client is not None:
+        return _hf_client
+    from huggingface_hub import InferenceClient
+
+    # provider="hf-inference" routes via router.huggingface.co (new infra, better DNS)
+    try:
+        _hf_client = InferenceClient(
+            provider="hf-inference",
+            api_key=HF_TOKEN or None,
+        )
+    except TypeError:
+        # Older huggingface_hub without provider param
+        _hf_client = InferenceClient(token=HF_TOKEN or None)
+    return _hf_client
+
+
+SYSTEM_MSG = (
+    "You are LAWAI, an expert AI legal assistant specializing in Indian law. "
+    "Provide accurate, structured legal information based on the Indian legal framework. "
+    "Always recommend consulting a qualified lawyer for specific legal advice."
+)
+
 
 def _call_hf_api(prompt: str, max_tokens: int = 2000, temperature: float = 0.2) -> str:
-    """Use HuggingFace Serverless Inference API — free with any HF account."""
-    import requests
-
-    headers = {"Content-Type": "application/json"}
-    if HF_TOKEN:
-        headers["Authorization"] = f"Bearer {HF_TOKEN}"
-
-    # Use the chat completions endpoint (OpenAI-compatible)
-    url = f"https://api-inference.huggingface.co/models/{HF_MODEL}/v1/chat/completions"
-    payload = {
-        "model": HF_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are LAWAI, an expert AI legal assistant specializing in Indian law. "
-                    "Provide accurate, helpful legal information based on Indian legal framework. "
-                    "Always mention consulting a qualified lawyer for specific legal advice."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-    }
-
+    client = _get_hf_client()
+    messages = [
+        {"role": "system", "content": SYSTEM_MSG},
+        {"role": "user", "content": prompt},
+    ]
     for attempt in range(3):
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=120)
-            if resp.status_code == 503:
-                # Model loading — wait and retry
-                wait = min(20 * (attempt + 1), 60)
-                logger.info(f"HF model loading, retrying in {wait}s...")
-                time.sleep(wait)
-                continue
-            resp.raise_for_status()
-            data = resp.json()
-            return data["choices"][0]["message"]["content"].strip()
+            resp = client.chat_completion(
+                model=HF_MODEL,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            return resp.choices[0].message.content.strip()
         except Exception as e:
-            if attempt < 2:
-                time.sleep(2)
+            err = str(e)
+            logger.warning(f"HF API attempt {attempt+1}: {err[:200]}")
+            if "503" in err or "loading" in err.lower():
+                time.sleep(20)
+            elif attempt < 2:
+                time.sleep(3)
             else:
-                logger.error(f"HF API error: {e}")
                 raise
 
 
