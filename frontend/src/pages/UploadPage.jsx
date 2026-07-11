@@ -19,7 +19,7 @@ export default function UploadPage() {
 
   const fetchDocs = async () => {
     try {
-      const { data } = await api.get('/docs/documents')
+      const { data } = await api.get('/api/docs/documents')
       setFiles(data.documents || [])
     } catch {}
   }
@@ -39,7 +39,7 @@ export default function UploadPage() {
     const formData = new FormData()
     formData.append('file', file)
     try {
-      const { data } = await api.post('/docs/upload', formData, {
+      const { data } = await api.post('/api/docs/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       toast.success(`✅ ${file.name} uploaded (${data.chunks} chunks)`)
@@ -59,7 +59,7 @@ export default function UploadPage() {
 
   const deleteDoc = async (docId, filename) => {
     try {
-      await api.delete(`/docs/documents/${docId}`)
+      await api.delete(`/api/docs/documents/${docId}`)
       toast.success(`Deleted ${filename}`)
       setFiles(f => f.filter(d => d.doc_id !== docId))
       if (selectedDoc?.doc_id === docId) setSelectedDoc(null)
@@ -76,7 +76,7 @@ export default function UploadPage() {
     setMessages(m => [...m, { role: 'user', content: q }])
     setThinking(true)
     try {
-      const { data } = await api.post('/docs/query', {
+      const { data } = await api.post('/api/docs/query', {
         query: q,
         doc_id: selectedDoc?.doc_id || null,
       })

@@ -17,7 +17,7 @@ export default function GeneratePage() {
 
   const fetchTemplates = async () => {
     try {
-      const { data } = await api.get('/generate/templates')
+      const { data } = await api.get('/api/generate/templates')
       setTemplates(data.templates || [])
     } catch {}
   }
@@ -46,7 +46,7 @@ export default function GeneratePage() {
       const payload = useCustom
         ? { template_id: 'custom', fields: {}, custom_prompt: customPrompt }
         : { template_id: selected.id, fields }
-      const { data } = await api.post('/generate/document', payload)
+      const { data } = await api.post('/api/generate/document', payload)
       setResult(data)
       toast.success('✅ Document generated!')
     } catch (err) {
