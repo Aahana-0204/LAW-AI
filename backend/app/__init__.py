@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -12,9 +14,15 @@ def create_app():
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = Config.JWT_ACCESS_TOKEN_EXPIRES
 
+    raw_origins = os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://localhost:3000",
+    )
+    allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
     CORS(
         app,
-        origins=["http://localhost:5173", "http://localhost:3000"],
+        origins=allowed_origins,
         supports_credentials=True,
     )
     jwt.init_app(app)
