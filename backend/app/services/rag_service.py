@@ -1,16 +1,12 @@
 import os
-import time
 
 import chromadb
-import requests
 from chromadb.utils import embedding_functions
 
 from ..config import Config
 from .domain_classifier import classify_domain
+from .llm_service import call_llm
 from ..utils.cache import get_cached, set_cached
-
-OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral")
 
 _chroma_client = None
 _collection = None
@@ -140,29 +136,13 @@ def get_rag_answer(query: str, chat_history: list = None) -> dict:
 
 Provide a comprehensive, accurate legal response following the format above:"""
 
-    for attempt in range(3):
-        try:
-            resp = requests.post(
-                f"{OLLAMA_BASE}/api/generate",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.2, "num_predict": 2000},
-                },
-                timeout=120,
-            )
-            resp.raise_for_status()
-            answer = resp.json().get("response", "").strip()
-            break
-        except Exception as e:
-            if attempt < 2:
-                time.sleep(1)
-            else:
-                answer = (
-                    "I apologize, I'm temporarily unable to process your query. "
-                    f"Please ensure Ollama is running (`ollama serve`). (Error: {type(e).__name__})"
-                )
+    try:
+        answer = call_llm(prompt, max_tokens=2000, temperature=0.2)
+    except Exception as e:
+        answer = (
+            "I apologize, I'm temporarily unable to process your query. "
+            f"Please try again in a moment. (Error: {type(e).__name__})"
+        )
 
     result = {"answer": answer, "domain": domain, "sources": sources}
     if not chat_history:

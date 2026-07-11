@@ -139,8 +139,7 @@ def delete_document(user_id: str, doc_id: str) -> bool:
 
 
 def query_user_documents(user_id: str, query: str, doc_id: str = None) -> dict:
-    import time
-    import requests
+    from .llm_service import call_llm
 
     collection = _get_user_collection()
     where_filter = {"user_id": user_id}
@@ -186,25 +185,8 @@ USER QUESTION: {query}
 
 Provide a clear, structured answer based on the documents. Highlight important legal clauses or provisions found. If documents don't contain relevant information, say so clearly."""
 
-    OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral")
-
-    for attempt in range(3):
-        try:
-            resp = requests.post(
-                f"{OLLAMA_BASE}/api/generate",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.1, "num_predict": 1500},
-                },
-                timeout=120,
-            )
-            resp.raise_for_status()
-            return {"answer": resp.json().get("response", "").strip(), "sources": sources}
-        except Exception as e:
-            if attempt < 2:
-                time.sleep(1)
-            else:
-                return {"answer": f"Error: {type(e).__name__}. Ensure Ollama is running.", "sources": sources}
+    try:
+        answer = call_llm(prompt, max_tokens=1500, temperature=0.1)
+        return {"answer": answer, "sources": sources}
+    except Exception as e:
+        return {"answer": f"Error: {type(e).__name__}. LLM unavailable.", "sources": sources}

@@ -1,9 +1,6 @@
 import os
-import time
-import requests
 
-OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral")
+from .llm_service import call_llm
 
 DOCUMENT_TEMPLATES = [
     {
@@ -107,28 +104,13 @@ INSTRUCTIONS:
 
 Generate the complete {template['name']}:"""
 
-    for attempt in range(3):
-        try:
-            resp = requests.post(
-                f"{OLLAMA_BASE}/api/generate",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.1, "num_predict": 3000},
-                },
-                timeout=180,
-            )
-            resp.raise_for_status()
-            content = resp.json().get("response", "").strip()
-            return {
-                "template_id": template_id,
-                "template_name": template["name"] if template else "Custom Document",
-                "content": content,
-                "fields": fields,
-            }
-        except Exception as e:
-            if attempt < 2:
-                time.sleep(1)
-            else:
-                return {"error": f"Generation failed: {type(e).__name__}: {e}"}
+    try:
+        content = call_llm(prompt, max_tokens=3000, temperature=0.1)
+        return {
+            "template_id": template_id,
+            "template_name": template["name"] if template else "Custom Document",
+            "content": content,
+            "fields": fields,
+        }
+    except Exception as e:
+        return {"error": f"Generation failed: {type(e).__name__}: {e}"}
