@@ -97,7 +97,10 @@ def get_rag_answer(query: str, chat_history: list = None) -> dict:
 Provide a comprehensive, accurate legal response following the format above:"""
 
     try:
-        answer = call_llm(prompt, max_tokens=2000, temperature=0.2)
+        answer = call_llm(
+            prompt, max_tokens=2000, temperature=0.2,
+            domain=domain, corpus_results=corpus_results
+        )
     except Exception as e:
         answer = (
             "I apologize, I'm temporarily unable to process your query. "
