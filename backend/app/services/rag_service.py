@@ -1,31 +1,9 @@
 import os
 
-import chromadb
-
-from ..config import Config
+from .corpus_search import search_corpus
 from .domain_classifier import classify_domain
 from .llm_service import call_llm
-from .hf_embeddings import hf_ef
 from ..utils.cache import get_cached, set_cached
-
-_chroma_client = None
-_collection = None
-
-
-def _get_collection():
-    global _chroma_client, _collection
-    if _collection is not None:
-        return _collection
-    persist_dir = os.path.abspath(Config.CHROMA_PERSIST_DIR)
-    os.makedirs(persist_dir, exist_ok=True)
-    _chroma_client = chromadb.PersistentClient(path=persist_dir)
-    _collection = _chroma_client.get_or_create_collection(
-        name="lawai_corpus",
-        embedding_function=hf_ef,
-        metadata={"hnsw:space": "cosine"},
-    )
-    return _collection
-
 
 NON_LEGAL_KEYWORDS = [
     "recipe", "weather", "sports", "movie", "music", "game", "food",
@@ -83,35 +61,20 @@ def get_rag_answer(query: str, chat_history: list = None) -> dict:
             "sources": [],
         }
 
-    collection = _get_collection()
-    sources = []
-    context = ""
-
-    if collection.count() > 0:
-        results = collection.query(
-            query_texts=[query],
-            n_results=min(5, collection.count()),
-            include=["documents", "metadatas", "distances"],
-        )
-        docs = results["documents"][0] if results["documents"] else []
-        metas = results["metadatas"][0] if results["metadatas"] else []
-        dists = results["distances"][0] if results["distances"] else []
-
-        context_parts = []
-        for doc, meta, dist in zip(docs, metas, dists):
-            relevance = round((1 - dist) * 100, 1)
-            if relevance > 40:
-                sources.append(
-                    {
-                        "title": meta.get("title", "Legal Document"),
-                        "section": meta.get("section", ""),
-                        "domain": meta.get("domain", domain),
-                        "relevance": relevance,
-                        "snippet": doc[:250] + "..." if len(doc) > 250 else doc,
-                    }
-                )
-                context_parts.append(f"### {meta.get('title', '')}\n{doc}")
-        context = "\n\n---\n\n".join(context_parts)
+    # Keyword-based corpus search (zero deps, instant startup)
+    corpus_results = search_corpus(query, n_results=5)
+    sources = [
+        {
+            "title": r["title"],
+            "section": r["section"],
+            "domain": r["domain"],
+            "relevance": r["relevance"],
+            "snippet": r["snippet"],
+        }
+        for r in corpus_results
+    ]
+    context_parts = [f"### {r['title']}\n{r['content']}" for r in corpus_results]
+    context = "\n\n---\n\n".join(context_parts)
 
     history_text = ""
     if chat_history:
