@@ -4,9 +4,33 @@ from pymongo import MongoClient
 
 from ..config import Config
 
-client = MongoClient(Config.MONGO_URI)
-db = client.get_default_database()
-chats_col = db["chats"]
+_client = None
+_db = None
+
+
+def _get_db():
+    global _client, _db
+    if _db is not None:
+        return _db
+    _client = MongoClient(
+        Config.MONGO_URI,
+        serverSelectionTimeoutMS=8000,
+        connectTimeoutMS=8000,
+        socketTimeoutMS=8000,
+        maxPoolSize=1,
+    )
+    uri = Config.MONGO_URI or ""
+    db_name = "lawai"
+    if "/" in uri:
+        part = uri.split("/")[-1].split("?")[0]
+        if part:
+            db_name = part
+    _db = _client[db_name]
+    return _db
+
+
+def _chats():
+    return _get_db()["chats"]
 
 
 def save_message(user_id, session_id, role, content, sources=None, domain=None):
@@ -19,11 +43,11 @@ def save_message(user_id, session_id, role, content, sources=None, domain=None):
         "domain": domain,
         "timestamp": datetime.utcnow(),
     }
-    chats_col.insert_one(msg)
+    _chats().insert_one(msg)
 
 
 def get_chat_history(user_id, session_id, limit=20):
-    msgs = chats_col.find(
+    msgs = _chats().find(
         {"user_id": user_id, "session_id": session_id},
         sort=[("timestamp", 1)],
     ).limit(limit)
@@ -49,4 +73,4 @@ def get_sessions(user_id):
         {"$sort": {"ts": -1}},
         {"$limit": 20},
     ]
-    return list(chats_col.aggregate(pipeline))
+    return list(_chats().aggregate(pipeline))

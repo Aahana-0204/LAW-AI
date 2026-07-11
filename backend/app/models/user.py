@@ -5,13 +5,39 @@ from pymongo import MongoClient
 
 from ..config import Config
 
-client = MongoClient(Config.MONGO_URI)
-db = client.get_default_database()
-users_col = db["users"]
+# Lazy connection — only connects on first use (fixes Vercel cold start timeout)
+_client = None
+_db = None
+
+
+def _get_db():
+    global _client, _db
+    if _db is not None:
+        return _db
+    _client = MongoClient(
+        Config.MONGO_URI,
+        serverSelectionTimeoutMS=8000,
+        connectTimeoutMS=8000,
+        socketTimeoutMS=8000,
+        maxPoolSize=1,  # Serverless: keep pool small
+    )
+    # Extract database name from URI or default to "lawai"
+    uri = Config.MONGO_URI or ""
+    db_name = "lawai"
+    if "/" in uri:
+        part = uri.split("/")[-1].split("?")[0]
+        if part:
+            db_name = part
+    _db = _client[db_name]
+    return _db
+
+
+def _users():
+    return _get_db()["users"]
 
 
 def create_user(name, email, password):
-    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=10)).decode()
     user = {
         "name": name,
         "email": email,
@@ -19,12 +45,12 @@ def create_user(name, email, password):
         "created_at": datetime.utcnow(),
         "plan": "free",
     }
-    result = users_col.insert_one(user)
+    result = _users().insert_one(user)
     return str(result.inserted_id)
 
 
 def find_user_by_email(email):
-    return users_col.find_one({"email": email})
+    return _users().find_one({"email": email})
 
 
 def verify_password(plain, hashed):

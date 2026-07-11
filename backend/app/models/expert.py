@@ -4,14 +4,41 @@ from pymongo import MongoClient
 
 from ..config import Config
 
-client = MongoClient(Config.MONGO_URI)
-db = client.get_default_database()
-experts_col = db["experts"]
-bookings_col = db["bookings"]
+_client = None
+_db = None
+
+
+def _get_db():
+    global _client, _db
+    if _db is not None:
+        return _db
+    _client = MongoClient(
+        Config.MONGO_URI,
+        serverSelectionTimeoutMS=8000,
+        connectTimeoutMS=8000,
+        socketTimeoutMS=8000,
+        maxPoolSize=1,
+    )
+    uri = Config.MONGO_URI or ""
+    db_name = "lawai"
+    if "/" in uri:
+        part = uri.split("/")[-1].split("?")[0]
+        if part:
+            db_name = part
+    _db = _client[db_name]
+    return _db
+
+
+def _experts():
+    return _get_db()["experts"]
+
+
+def _bookings():
+    return _get_db()["bookings"]
 
 
 def seed_experts():
-    if experts_col.count_documents({}) == 0:
+    if _experts().count_documents({}) == 0:
         sample_experts = [
             {
                 "name": "Adv. Priya Sharma",
@@ -74,14 +101,14 @@ def seed_experts():
                 "avatar": "VS",
             },
         ]
-        experts_col.insert_many(sample_experts)
+        _experts().insert_many(sample_experts)
 
 
 def get_all_experts(domain=None):
     query = {}
     if domain:
         query["specialization"] = {"$regex": domain, "$options": "i"}
-    experts = list(experts_col.find(query))
+    experts = list(_experts().find(query))
     for expert in experts:
         expert["_id"] = str(expert["_id"])
     return experts
@@ -97,5 +124,5 @@ def book_expert(user_id, expert_id, date, time_slot, query_summary):
         "status": "pending",
         "created_at": datetime.utcnow(),
     }
-    result = bookings_col.insert_one(booking)
+    result = _bookings().insert_one(booking)
     return str(result.inserted_id)
