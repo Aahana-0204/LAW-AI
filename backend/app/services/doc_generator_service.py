@@ -985,7 +985,7 @@ _CUSTOM_KEYWORDS = {
 }
 
 
-def _detect_template_from_prompt(prompt: str) -> str | None:
+def _detect_template_from_prompt(prompt: str):
     p = prompt.lower()
     best = None
     best_score = 0

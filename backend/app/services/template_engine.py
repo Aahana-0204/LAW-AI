@@ -183,7 +183,8 @@ def _detect_intent(query: str) -> str:
     return 'general'
 
 
-def _match_procedure(query: str) -> dict | None:
+def _match_procedure(query: str):
+    """Return a procedure guide dict or None."""
     q = query.lower()
     for key, triggers in PROCEDURE_TRIGGERS.items():
         for trigger in triggers:
