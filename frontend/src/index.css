@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-dark-900 text-gray-100 font-sans;
+    background: radial-gradient(ellipse at top, #1a1a28 0%, #0a0a0f 70%);
+    min-height: 100vh;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #f59e0b #1a1a28;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #1a1a28;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: #f59e0b;
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .btn-gold {
+    @apply rounded-lg bg-gold-500 px-6 py-3 font-semibold text-dark-900 transition-all duration-200 hover:scale-[1.01] hover:bg-gold-400 hover:shadow-lg hover:shadow-gold-500/30 active:scale-95;
+  }
+
+  .btn-outline {
+    @apply rounded-lg border border-gold-500 px-6 py-3 font-semibold text-gold-500 transition-all duration-200 hover:bg-gold-500/10;
+  }
+
+  .card {
+    @apply rounded-xl border border-dark-600 bg-dark-800 p-6 transition-all duration-200 hover:border-gold-500/30;
+  }
+
+  .input-field {
+    @apply w-full rounded-lg border border-dark-500 bg-dark-700 px-4 py-3 text-gray-100 placeholder-gray-500 transition-all duration-200 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500/30;
+  }
+
+  .domain-badge {
+    @apply rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .glass {
+    @apply border border-white/10 bg-white/5 backdrop-blur-sm;
+  }
+
+  .text-gold {
+    @apply text-gold-500;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #f59e0b, #fcd34d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
