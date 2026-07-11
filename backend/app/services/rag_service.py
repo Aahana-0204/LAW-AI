@@ -2,14 +2,15 @@ import os
 import time
 
 import chromadb
-import google.generativeai as genai
+import requests
 from chromadb.utils import embedding_functions
 
 from ..config import Config
 from .domain_classifier import classify_domain
 from ..utils.cache import get_cached, set_cached
 
-genai.configure(api_key=Config.GEMINI_API_KEY)
+OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "mistral")
 
 _chroma_client = None
 _collection = None
@@ -141,15 +142,18 @@ Provide a comprehensive, accurate legal response following the format above:"""
 
     for attempt in range(3):
         try:
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.2,
-                    max_output_tokens=2000,
-                ),
+            resp = requests.post(
+                f"{OLLAMA_BASE}/api/generate",
+                json={
+                    "model": OLLAMA_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.2, "num_predict": 2000},
+                },
+                timeout=120,
             )
-            answer = response.text
+            resp.raise_for_status()
+            answer = resp.json().get("response", "").strip()
             break
         except Exception as e:
             if attempt < 2:
@@ -157,7 +161,7 @@ Provide a comprehensive, accurate legal response following the format above:"""
             else:
                 answer = (
                     "I apologize, I'm temporarily unable to process your query. "
-                    f"Please try again in a moment. (Error: {type(e).__name__})"
+                    f"Please ensure Ollama is running (`ollama serve`). (Error: {type(e).__name__})"
                 )
 
     result = {"answer": answer, "domain": domain, "sources": sources}

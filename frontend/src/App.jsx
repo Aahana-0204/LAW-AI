@@ -7,6 +7,8 @@ import ExpertsPage from './pages/ExpertsPage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import UploadPage from './pages/UploadPage'
+import GeneratePage from './pages/GeneratePage'
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/experts" element={<ExpertsPage />} />
+            <Route path="/documents" element={<UploadPage />} />
+            <Route path="/generate" element={<GeneratePage />} />
           </Routes>
         </div>
         <Toaster
