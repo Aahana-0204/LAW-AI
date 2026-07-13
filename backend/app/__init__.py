@@ -21,10 +21,24 @@ def create_app():
     )
     allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
 
+    import re
+
+    def _origin_allowed(origin):
+        if not origin:
+            return False
+        # Allow all *.vercel.app subdomains automatically
+        if re.match(r'https://.*\.vercel\.app$', origin):
+            return True
+        if origin.startswith("http://localhost"):
+            return True
+        return origin in allowed_origins
+
     CORS(
         app,
-        origins=allowed_origins,
+        origins=_origin_allowed,
         supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     )
     jwt.init_app(app)
 
