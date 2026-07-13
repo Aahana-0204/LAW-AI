@@ -1,4 +1,5 @@
 import os
+import re
 
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -9,29 +10,21 @@ from .config import Config
 jwt = JWTManager()
 
 
+def _origin_allowed(origin):
+    if not origin:
+        return False
+    if re.match(r'https://.*\.vercel\.app$', origin):
+        return True
+    if origin.startswith("http://localhost"):
+        return True
+    return False
+
+
 def create_app():
     app = Flask(__name__)
     app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = Config.JWT_ACCESS_TOKEN_EXPIRES
     app.config["PROPAGATE_EXCEPTIONS"] = True
-
-    raw_origins = os.environ.get(
-        "CORS_ORIGINS",
-        "http://localhost:5173,http://localhost:3000",
-    )
-    allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
-
-    import re
-
-    def _origin_allowed(origin):
-        if not origin:
-            return False
-        # Allow all *.vercel.app subdomains automatically
-        if re.match(r'https://.*\.vercel\.app$', origin):
-            return True
-        if origin.startswith("http://localhost"):
-            return True
-        return origin in allowed_origins
 
     CORS(
         app,
