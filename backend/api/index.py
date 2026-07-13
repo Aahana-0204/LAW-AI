@@ -4,7 +4,10 @@ import os
 import re
 import traceback
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Ensure backend root is in path for our app package
+_backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _backend_root not in sys.path:
+    sys.path.insert(0, _backend_root)
 
 # --- Bootstrap Flask first (always available) ---
 from flask import Flask, jsonify
