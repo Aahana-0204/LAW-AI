@@ -15,12 +15,24 @@ from app.config import Config
 app = Flask(__name__)
 app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
 
-CORS(app, supports_credentials=True,
+
+def _origin_allowed(origin):
+    """Allow all Vercel preview URLs and localhost."""
+    if not origin:
+        return True  # allow no-origin requests (curl, server-to-server)
+    if re.match(r"https://.*\.vercel\.app$", origin):
+        return True
+    if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
+        return True
+    return False
+
+
+CORS(app, origins=_origin_allowed, supports_credentials=True,
      allow_headers=["Content-Type", "Authorization"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-     origins=["*"])
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 JWTManager(app)
 
+# Register blueprints (each in a try/except so one failure doesn't break the rest)
 _boot_errors = {}
 for _name, _module, _attr, _prefix in [
     ("auth",     "app.routes.auth",     "auth_bp",     "/api/auth"),
@@ -35,7 +47,7 @@ for _name, _module, _attr, _prefix in [
         _mod = _il.import_module(_module)
         app.register_blueprint(getattr(_mod, _attr), url_prefix=_prefix)
     except Exception:
-        _boot_errors[_name] = traceback.format_exc()[-600:]
+        _boot_errors[_name] = traceback.format_exc()[-400:]
 
 
 @app.route("/api/health")
@@ -43,9 +55,25 @@ def health():
     return jsonify({
         "status": "ok",
         "message": "LAWAI Backend is running",
-        "blueprints_ok": len(_boot_errors) == 0,
-        "boot_errors": _boot_errors,
+        "version": "2.0.0",
     })
+
+
+@app.route("/api/debug/db")
+def debug_db():
+    try:
+        from pymongo import MongoClient
+        client = MongoClient(Config.MONGO_URI, serverSelectionTimeoutMS=8000,
+                             tls=True, tlsAllowInvalidCertificates=True)
+        dbs = client.list_database_names()
+        db = client["lawai"]
+        cols = db.list_collection_names()
+        counts = {c: db[c].count_documents({}) for c in cols}
+        return jsonify({"status": "connected", "databases": dbs,
+                        "collections": cols, "counts": counts})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e),
+                        "trace": traceback.format_exc()[-800:]}), 500
 
 
 @app.errorhandler(Exception)
