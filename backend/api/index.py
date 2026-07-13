@@ -2,26 +2,20 @@
 import sys
 import os
 import traceback
+import re
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from flask import Flask, jsonify
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 
-app = Flask(__name__)
-
-# Always available health endpoint
-@app.route("/api/health")
-def health():
-    return jsonify({"status": "ok", "message": "LAWAI Backend is running"})
-
-# Try to load the full app
+# Use 'application' internally; Vercel looks for 'app'
+_flask = Flask(__name__)
 _boot_errors = []
 
 try:
-    import re
-    from flask_cors import CORS
-    from flask_jwt_extended import JWTManager
-    from app.config import Config
+    from app.config import Config  # noqa — 'app' here is the module, not Flask instance
 
     def _origin_allowed(origin):
         if not origin:
@@ -32,17 +26,16 @@ try:
             return True
         return False
 
-    app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
-    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = Config.JWT_ACCESS_TOKEN_EXPIRES
-    app.config["PROPAGATE_EXCEPTIONS"] = True
-    CORS(app, origins=_origin_allowed, supports_credentials=True,
+    _flask.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
+    _flask.config["JWT_ACCESS_TOKEN_EXPIRES"] = Config.JWT_ACCESS_TOKEN_EXPIRES
+    _flask.config["PROPAGATE_EXCEPTIONS"] = True
+    CORS(_flask, origins=_origin_allowed, supports_credentials=True,
          allow_headers=["Content-Type", "Authorization"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-    JWTManager(app)
-except Exception as _e:
+    JWTManager(_flask)
+except Exception:
     _boot_errors.append(("core", traceback.format_exc()))
 
-# Register blueprints one by one to isolate failures
 _blueprints = [
     ("auth", "app.routes.auth", "auth_bp", "/api/auth"),
     ("chat", "app.routes.chat", "chat_bp", "/api/chat"),
@@ -56,19 +49,28 @@ for _name, _module, _attr, _prefix in _blueprints:
         import importlib as _il
         _mod = _il.import_module(_module)
         _bp = getattr(_mod, _attr)
-        app.register_blueprint(_bp, url_prefix=_prefix)
-    except Exception as _e:
+        _flask.register_blueprint(_bp, url_prefix=_prefix)
+    except Exception:
         _boot_errors.append((_name, traceback.format_exc()))
 
 
-@app.route("/api/debug/boot")
+@_flask.route("/api/health")
+def health():
+    return jsonify({"status": "ok", "message": "LAWAI Backend is running"})
+
+
+@_flask.route("/api/debug/boot")
 def boot_debug():
     if _boot_errors:
         return jsonify({"status": "partial", "errors": {k: v[-2000:] for k, v in _boot_errors}}), 500
     return jsonify({"status": "full"})
 
 
-@app.errorhandler(Exception)
+@_flask.errorhandler(Exception)
 def handle_exception(e):
     return jsonify({"error": str(e), "type": type(e).__name__,
                     "trace": traceback.format_exc()[-1000:]}), 500
+
+
+# Vercel uses `app` as the WSGI callable
+app = _flask
