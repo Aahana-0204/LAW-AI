@@ -11,7 +11,7 @@ def init_experts():
     pass
 
 
-@expert_bp.route("/", methods=["GET"])
+@expert_bp.route("/", methods=["GET"], strict_slashes=False)
 def experts():
     seed_experts()
     domain = request.args.get("domain")
