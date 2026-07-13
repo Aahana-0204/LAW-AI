@@ -14,26 +14,13 @@ from app.config import Config
 
 app = Flask(__name__)
 app.config["JWT_SECRET_KEY"] = Config.JWT_SECRET_KEY
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = Config.JWT_ACCESS_TOKEN_EXPIRES
-app.config["PROPAGATE_EXCEPTIONS"] = True
 
-
-def _origin_allowed(origin):
-    if not origin:
-        return False
-    if re.match(r"https://.*\.vercel\.app$", origin):
-        return True
-    if origin.startswith("http://localhost"):
-        return True
-    return False
-
-
-CORS(app, origins=_origin_allowed, supports_credentials=True,
+CORS(app, supports_credentials=True,
      allow_headers=["Content-Type", "Authorization"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     origins=["*"])
 JWTManager(app)
 
-# Register blueprints
 _boot_errors = {}
 for _name, _module, _attr, _prefix in [
     ("auth",     "app.routes.auth",     "auth_bp",     "/api/auth"),
@@ -57,21 +44,8 @@ def health():
         "status": "ok",
         "message": "LAWAI Backend is running",
         "blueprints_ok": len(_boot_errors) == 0,
+        "boot_errors": _boot_errors,
     })
-
-
-@app.route("/api/debug/db")
-def debug_db():
-    try:
-        from pymongo import MongoClient
-        client = MongoClient(Config.MONGO_URI, serverSelectionTimeoutMS=8000,
-                             tls=True, tlsAllowInvalidCertificates=True)
-        dbs = client.list_database_names()
-        db = client["lawai"]
-        cols = db.list_collection_names()
-        return jsonify({"status": "connected", "databases": dbs, "collections": cols})
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 500
 
 
 @app.errorhandler(Exception)
