@@ -17,14 +17,18 @@ def _get_corpus():
         return _corpus
     try:
         import importlib
-        ipc = importlib.import_module("data.corpus.ipc_sections")
-        const = importlib.import_module("data.corpus.constitutional_articles")
-        civil = importlib.import_module("data.corpus.civil_family_law")
-        case = importlib.import_module("data.corpus.case_law")
+        ipc    = importlib.import_module("data.corpus.ipc_sections")
+        crpc   = importlib.import_module("data.corpus.crpc_sections")
+        const  = importlib.import_module("data.corpus.constitutional_articles")
+        civil  = importlib.import_module("data.corpus.civil_family_law")
+        special = importlib.import_module("data.corpus.special_laws")
+        case   = importlib.import_module("data.corpus.case_law")
         _corpus = (
             ipc.IPC_CORPUS
+            + crpc.CRPC_CORPUS
             + const.CONSTITUTIONAL_CORPUS
             + civil.CIVIL_FAMILY_CORPUS
+            + special.SPECIAL_LAWS_CORPUS
             + case.CASE_LAW_CORPUS
         )
     except Exception:
