@@ -154,16 +154,16 @@ PROCEDURE_GUIDES = {
     },
 }
 
-# Keywords that trigger procedure guides
+# Keywords that trigger procedure guides — these must be ACTION phrases, not informational queries
 PROCEDURE_TRIGGERS = {
-    "fir": ["file fir", "file a fir", "lodge fir", "register fir", "file complaint police", "how to report crime", "how to file fir"],
-    "bail": ["apply for bail", "get bail", "how to get bail", "bail application", "apply bail"],
-    "divorce": ["file for divorce", "file divorce", "how to divorce", "divorce procedure", "how to get divorce", "mutual consent divorce"],
-    "consumer_complaint": ["consumer complaint", "file consumer", "consumer forum", "cheated by company", "product defective", "service complaint"],
-    "employment_termination": ["fired without notice", "terminated without notice", "wrongful termination", "illegal termination", "employer fired me", "boss fired me", "job terminated"],
-    "cheque_bounce": ["cheque bounce", "check bounce", "cheque dishonour", "bounced cheque", "section 138"],
-    "property_registration": ["register property", "property registration", "sale deed", "register land", "register flat"],
-    "domestic_violence": ["domestic violence", "file domestic violence", "husband beating", "wife beating", "498a", "section 498"],
+    "fir": ["how to file fir", "how to lodge fir", "how to register fir", "steps to file fir", "file a complaint at police station", "how to report crime to police"],
+    "bail": ["how to apply for bail", "how to get bail", "steps for bail application", "bail application procedure", "how to file bail application"],
+    "divorce": ["how to file for divorce", "how to file divorce", "how to get divorce", "divorce procedure", "steps for divorce", "mutual consent divorce procedure"],
+    "consumer_complaint": ["how to file consumer complaint", "steps to file consumer complaint", "consumer forum procedure", "how to complain to consumer court"],
+    "employment_termination": ["fired without notice", "terminated without notice", "wrongful termination procedure", "illegal termination what to do", "employer fired me what to do"],
+    "cheque_bounce": ["cheque bounce procedure", "how to file cheque bounce case", "steps for cheque bounce", "cheque dishonour case how to file"],
+    "property_registration": ["how to register property", "property registration procedure", "steps for sale deed registration", "how to register land", "register flat procedure"],
+    "domestic_violence": ["how to file domestic violence complaint", "domestic violence complaint procedure", "steps for domestic violence case", "how to approach protection officer"],
 }
 
 # ─── Query analysis helpers ───────────────────────────────────────────────────
